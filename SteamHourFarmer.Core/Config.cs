@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace SteamHourFarmer.Bot;
+namespace SteamHourFarmer.Core;
 
 /// <summary>
 /// Representes the configuration for a single Steam account.

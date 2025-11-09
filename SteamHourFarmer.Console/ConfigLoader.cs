@@ -1,6 +1,9 @@
 using System.Text.Json;
+using SteamHourFarmer.Core;
+using SteamHourFarmer.Infrastructure;
+using SteamHourFarmer.Infrastructure.Helpers;
 
-namespace SteamHourFarmer.Bot;
+namespace SteamHourFarmer.Console;
 
 /// <summary>
 /// Handles loading and parsing the JSON configuration file.
@@ -79,14 +82,14 @@ public static class ConfigLoader
                     return loaded;
             }
 
-            Console.Error.WriteLine(
+            System.Console.Error.WriteLine(
                 $"No valid config found. Tried: {string.Join(", ", tried.Distinct())}. " +
                 "Provide CONFIG_PATH or place config.json (array) or appsettings.json (object with SteamAccounts) next to the exe.");
             return new List<AccountConfig>();
         }
         catch (Exception e)
         {
-            Console.Error.WriteLine($"Failed to load config. Paths tried: {string.Join(", ", tried.Distinct())}. Error: {e.Message}");
+            System.Console.Error.WriteLine($"Failed to load config. Paths tried: {string.Join(", ", tried.Distinct())}. Error: {e.Message}");
             return new List<AccountConfig>();
         }
     }

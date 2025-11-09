@@ -1,4 +1,7 @@
-namespace SteamHourFarmer.Bot;
+using SteamHourFarmer.Core.Interfaces;
+using SteamHourFarmer.Infrastructure.Helpers;
+
+namespace SteamHourFarmer.Infrastructure;
 
 public class FileSystemSentryStorage : ISentryStorage
 {

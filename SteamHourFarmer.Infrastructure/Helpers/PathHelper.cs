@@ -1,4 +1,4 @@
-namespace SteamHourFarmer.Bot;
+namespace SteamHourFarmer.Infrastructure.Helpers;
 
 public class PathHelper
 {

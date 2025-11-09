@@ -1,13 +1,17 @@
+using Microsoft.Extensions.Logging;
 using Polly;
+using SteamHourFarmer.Core;
+using SteamHourFarmer.Core.Interfaces;
 using SteamKit2;
 using SteamKit2.Authentication;
 using SteamKit2.Internal;
 
-namespace SteamHourFarmer.Bot;
+namespace SteamHourFarmer.Infrastructure;
 
-public class Bot
+public class SteamSession : ISteamSession
 {
     private readonly AccountConfig _config;
+    private readonly ILogger<SteamSession> _logger;
 
     private readonly SteamClient _steamClient;
     private readonly CallbackManager _callbackManager;
@@ -17,10 +21,12 @@ public class Bot
     private bool _isRunning;
     private TaskCompletionSource<bool>? _loginTcs;
     private static readonly TimeSpan LoginTimeout = TimeSpan.FromMinutes(10);
+    private CancellationTokenSource _internalCts = new();
 
-    public Bot(AccountConfig config, string dataDirectory, ISentryStorage sentryStorage)
+    public SteamSession(AccountConfig config, ILogger<SteamSession> logger)
     {
         _config = config;
+        _logger = logger;
 
         _steamClient = new SteamClient();
         _steamUser = _steamClient.GetHandler<SteamUser>()!;
@@ -34,29 +40,34 @@ public class Bot
         _callbackManager.Subscribe<SteamUser.LoggedOffCallback>(OnLoggedOff);
         _callbackManager.Subscribe<SteamUser.AccountInfoCallback>(OnAccountInfo);
     }
-
-    private void Log(string message)
-    {
-        Console.WriteLine($"[{_config.Username}] {message}");
-    }
-
+    
     /// <summary>
     /// Starts the bot, connects to Steam, and runs the callback loop.
     /// </summary>
-    public async Task StartAsync()
+    public async Task StartAsync(CancellationToken cancellationToken)
     {
         _isRunning = true;
-        
-        // Retry policy with exponential backoff
+        _internalCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
         var retryPolicy = Policy
             .Handle<Exception>()
             .WaitAndRetryAsync(15,
                 retryAttempt => TimeSpan.FromSeconds(Math.Min(60, Math.Pow(2, retryAttempt))),
-                (ex, timespan) => Log($"Connection/login failed: {ex.Message}. Retrying in {timespan.TotalSeconds}s..."));
-
-        await retryPolicy.ExecuteAsync(ConnectAndRunLoopAsync);
+                (ex, timespan) => _logger.LogWarning(ex, "[{Username}] Connection/login failed: {Message}. Retrying in {TotalSeconds}s...", _config.Username, ex.Message, timespan.TotalSeconds));
         
-        Log("Could not re-login after multiple attempts, stopping.");
+        try
+        {
+            await retryPolicy.ExecuteAsync(ConnectAndRunLoopAsync);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[{Username}] A fatal, non-retryable error occurred: {Message}", _config.Username, ex.Message);
+        }
+        finally
+        {
+            _isRunning = false;
+            _logger.LogWarning("[{Username}] Could not re-login after multiple attempts, stopping.", _config.Username);
+        }
     }
     
     /// <summary>
@@ -64,46 +75,48 @@ public class Bot
     /// </summary>
     private async Task ConnectAndRunLoopAsync()
     {
-        // Start the callback loop in a background thread
-        var cts = new CancellationTokenSource();
-        _ = Task.Run(() => CallbackLoop(cts.Token));
+        _ = Task.Run(() => CallbackLoop(_internalCts.Token), _internalCts.Token);
 
-        Log("Connecting to Steam network...");
+        _logger.LogInformation("[{Username}] Connecting to Steam network...", _config.Username);
         _steamClient.Connect();
 
-        // Prepare TCS for login
         _loginTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var timeoutCts = new CancellationTokenSource(LoginTimeout);
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cts.Token);
-        
-        // Register cancellation for timeout
-        using (linkedCts.Token.Register(() => _loginTcs.TrySetException(new TimeoutException("Login timed out."))))
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, _internalCts.Token);
+
+        await using (linkedCts.Token.Register(() => _loginTcs.TrySetException(new TimeoutException("Login timed out."))))
         {
-            await _loginTcs.Task; // wait until login success/failure
+            await _loginTcs.Task;
         }
 
-        // After successful login keep process alive indefinitely.
-        await Task.Delay(Timeout.Infinite, cts.Token);
+        await Task.Delay(Timeout.Infinite, _internalCts.Token);
     }
 
 
     // The main loop that dispatches callbacks from Steam.
     private void CallbackLoop(CancellationToken token)
     {
-        while (!token.IsCancellationRequested)
+        while (!token.IsCancellationRequested && _isRunning)
         {
-            _callbackManager.RunWaitCallbacks(TimeSpan.FromSeconds(1));
+            try
+            {
+                _callbackManager.RunWaitCallbacks(TimeSpan.FromSeconds(1));
+            }
+            catch (Exception ex)
+            {
+                 _logger.LogError(ex, "[{Username}] Exception in callback loop: {Message}", _config.Username, ex.Message);
+            }
         }
+        _logger.LogDebug("[{Username}] Callback loop exiting.", _config.Username);
     }
 
 
     private async void OnConnected(SteamClient.ConnectedCallback callback)
     {
-        Log("Connected to Steam! Logging in...");
+        _logger.LogInformation("[{Username}] Connected to Steam! Logging in...", _config.Username);
 
         try
         {
-            // Use modern authentication flow
             var authSession = await _steamClient.Authentication.BeginAuthSessionViaCredentialsAsync(new AuthSessionDetails
             {
                 Username = _config.Username,
@@ -112,12 +125,10 @@ public class Bot
                 Authenticator = new UserConsoleAuthenticator(),
             });
 
-            // Poll Steam for authentication response
             var pollResponse = await authSession.PollingWaitForResultAsync();
 
-            Log("Authentication successful! Logging on...");
+            _logger.LogInformation("[{Username}] Authentication successful! Logging on...", _config.Username);
 
-            // Log on to Steam with the access token
             _steamUser.LogOn(new SteamUser.LogOnDetails
             {
                 Username = pollResponse.AccountName,
@@ -127,14 +138,14 @@ public class Bot
         }
         catch (Exception ex)
         {
-            Log($"Authentication failed: {ex.Message}");
+            _logger.LogError(ex, "[{Username}] Authentication failed: {Message}", _config.Username, ex.Message);
             _loginTcs?.TrySetException(ex);
         }
     }
 
     private void OnDisconnected(SteamClient.DisconnectedCallback callback)
     {
-        Log("Disconnected from Steam.");
+        _logger.LogWarning("[{Username}] Disconnected from Steam.", _config.Username);
         
         if (_isRunning && _loginTcs is not null && !_loginTcs.Task.IsCompleted)
         {
@@ -151,12 +162,12 @@ public class Bot
     {
         if (callback.Result == EResult.OK)
         {
-            Log("Logged in successfully!");
+            _logger.LogInformation("[{Username}] Logged in successfully!", _config.Username);
             _loginTcs?.TrySetResult(true);
             return;
         }
 
-        Log($"Login failed: {callback.Result} / {callback.ExtendedResult}");
+        _logger.LogError("[{Username}] Login failed: {Result} / {ExtendedResult}", _config.Username, callback.Result, callback.ExtendedResult);
         _loginTcs?.TrySetException(new Exception($"Login failed: {callback.Result}"));
     }
     
@@ -175,11 +186,11 @@ public class Bot
 
     private void OnLoggedOff(SteamUser.LoggedOffCallback callback)
     {
-        Log($"Logged off: {callback.Result}");
+        _logger.LogInformation("[{Username}] Logged off: {Result}", _config.Username, callback.Result);
     }
 
     /// <summary>
-    /// Play configured games (sends ClientGamesPlayed message). If blocked, send empty list.
+    /// Play configured games (sends ClientGamesPlayed message).
     /// </summary>
     private void PlayGames()
     {
@@ -188,7 +199,7 @@ public class Bot
             var msg = new ClientMsgProtobuf<CMsgClientGamesPlayed>(EMsg.ClientGamesPlayed);
             if (_config.Games.Length == 0)
             {
-                Log("Not playing any games (none configured).");
+                _logger.LogInformation("[{Username}] Not playing any games (none configured).", _config.Username);
                 msg.Body.games_played.Clear();
             }
             else
@@ -197,13 +208,13 @@ public class Bot
                 {
                     msg.Body.games_played.Add(new CMsgClientGamesPlayed.GamePlayed { game_id = (ulong)appId });
                 }
-                Log($"Playing {_config.Games.Length} games.");
+                _logger.LogInformation("[{Username}] Playing {GameCount} games.", _config.Username, _config.Games.Length);
             }
             _steamClient.Send(msg);
         }
         catch (Exception ex)
         {
-            Log($"Failed to send games list: {ex.Message}");
+            _logger.LogError(ex, "[{Username}] Failed to send games list: {Message}", _config.Username, ex.Message);
         }
     }
 }

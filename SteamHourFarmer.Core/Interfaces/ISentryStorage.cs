@@ -1,4 +1,4 @@
-namespace SteamHourFarmer.Bot;
+namespace SteamHourFarmer.Core.Interfaces;
 
 /// <summary>
 /// Interface for storing and retrieving Steam sentry files (authentication tokens).
