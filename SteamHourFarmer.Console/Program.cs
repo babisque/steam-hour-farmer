@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using SteamHourFarmer.Infrastructure;
 using SteamHourFarmer.Core.Interfaces;
+using SteamHourFarmer.Infrastructure.Helpers;
 
 namespace SteamHourFarmer.Console;
 
@@ -20,15 +21,29 @@ public class Program
         
         logger.LogInformation("Program started");
         
-        var configPath = Environment.GetEnvironmentVariable("CONFIG_PATH") ?? "./config.json";
-        var tokenStorageDir = Environment.GetEnvironmentVariable("TOKEN_STORAGE_DIRECTORY") ?? "./tokens";
+        string? cliConfig = null;
+        for (int i = 0; i < args.Length - 1; i++)
+        {
+            if (string.Equals(args[i], "--config", StringComparison.OrdinalIgnoreCase))
+            {
+                cliConfig = args[i + 1];
+                break;
+            }
+        }
+        var envConfig = Environment.GetEnvironmentVariable("CONFIG_PATH");
+        var configPath = cliConfig ?? envConfig ?? "./config.json";
+        var resolvedConfigPath = PathHelper.ConvertRelativePath(configPath);
         
-        ISentryStorage sentryStorage = new FileSystemSentryStorage(tokenStorageDir);
+        var tokenStorageDir = Environment.GetEnvironmentVariable("TOKEN_STORAGE_DIRECTORY") ?? "./tokens";
+        var resolvedTokenDir = PathHelper.ConvertRelativePath(tokenStorageDir);
+        
         logger.LogInformation("Starting sentry storage");
+        logger.LogInformation("Using config path: {ConfigPath}", resolvedConfigPath);
+        logger.LogInformation("Using token storage directory: {TokenDir}", resolvedTokenDir);
 
         try
         {
-            var config = await ConfigLoader.LoadConfigAsync(configPath);
+            var config = await ConfigLoader.LoadConfigAsync(resolvedConfigPath);
             if (config.Count == 0)
             {
                 logger.LogWarning("Config file is empty or invalid. Exiting.");
