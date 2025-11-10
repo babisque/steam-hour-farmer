@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamHourFarmer.Core", "Ste
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamHourFarmer.Infrastructure", "SteamHourFarmer.Infrastructure\SteamHourFarmer.Infrastructure.csproj", "{DCA47641-ECE9-4C10-8550-FD1EEA0970F0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamHourFarmer.Console", "SteamHourFarmer.Console\SteamHourFarmer.Console.csproj", "{81913B0D-5B0C-4456-AFD9-0FF041FBA13D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamHourFarmer.Worker", "SteamHourFarmer.Worker\SteamHourFarmer.Worker.csproj", "{A5E70BBC-D024-4565-ABA3-C7A7A5C3ADFA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -43,18 +43,18 @@ Global
 		{DCA47641-ECE9-4C10-8550-FD1EEA0970F0}.Release|x64.Build.0 = Release|Any CPU
 		{DCA47641-ECE9-4C10-8550-FD1EEA0970F0}.Release|x86.ActiveCfg = Release|Any CPU
 		{DCA47641-ECE9-4C10-8550-FD1EEA0970F0}.Release|x86.Build.0 = Release|Any CPU
-		{81913B0D-5B0C-4456-AFD9-0FF041FBA13D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{81913B0D-5B0C-4456-AFD9-0FF041FBA13D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{81913B0D-5B0C-4456-AFD9-0FF041FBA13D}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{81913B0D-5B0C-4456-AFD9-0FF041FBA13D}.Debug|x64.Build.0 = Debug|Any CPU
-		{81913B0D-5B0C-4456-AFD9-0FF041FBA13D}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{81913B0D-5B0C-4456-AFD9-0FF041FBA13D}.Debug|x86.Build.0 = Debug|Any CPU
-		{81913B0D-5B0C-4456-AFD9-0FF041FBA13D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{81913B0D-5B0C-4456-AFD9-0FF041FBA13D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{81913B0D-5B0C-4456-AFD9-0FF041FBA13D}.Release|x64.ActiveCfg = Release|Any CPU
-		{81913B0D-5B0C-4456-AFD9-0FF041FBA13D}.Release|x64.Build.0 = Release|Any CPU
-		{81913B0D-5B0C-4456-AFD9-0FF041FBA13D}.Release|x86.ActiveCfg = Release|Any CPU
-		{81913B0D-5B0C-4456-AFD9-0FF041FBA13D}.Release|x86.Build.0 = Release|Any CPU
+		{A5E70BBC-D024-4565-ABA3-C7A7A5C3ADFA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A5E70BBC-D024-4565-ABA3-C7A7A5C3ADFA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A5E70BBC-D024-4565-ABA3-C7A7A5C3ADFA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A5E70BBC-D024-4565-ABA3-C7A7A5C3ADFA}.Debug|x64.Build.0 = Debug|Any CPU
+		{A5E70BBC-D024-4565-ABA3-C7A7A5C3ADFA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A5E70BBC-D024-4565-ABA3-C7A7A5C3ADFA}.Debug|x86.Build.0 = Debug|Any CPU
+		{A5E70BBC-D024-4565-ABA3-C7A7A5C3ADFA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A5E70BBC-D024-4565-ABA3-C7A7A5C3ADFA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A5E70BBC-D024-4565-ABA3-C7A7A5C3ADFA}.Release|x64.ActiveCfg = Release|Any CPU
+		{A5E70BBC-D024-4565-ABA3-C7A7A5C3ADFA}.Release|x64.Build.0 = Release|Any CPU
+		{A5E70BBC-D024-4565-ABA3-C7A7A5C3ADFA}.Release|x86.ActiveCfg = Release|Any CPU
+		{A5E70BBC-D024-4565-ABA3-C7A7A5C3ADFA}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using SteamHourFarmer.Core.Interfaces;
 using SteamHourFarmer.Infrastructure.Helpers;
 
@@ -6,10 +7,12 @@ namespace SteamHourFarmer.Infrastructure;
 public class FileSystemSentryStorage : ISentryStorage
 {
     private readonly string _directory;
+    private readonly ILogger<FileSystemSentryStorage> _logger;
 
-    public FileSystemSentryStorage(string directory)
+    public FileSystemSentryStorage(string directory, ILogger<FileSystemSentryStorage> logger)
     {
         _directory = PathHelper.ConvertRelativePath(directory);
+        _logger = logger;
         
         if (!Directory.Exists(_directory))
             Directory.CreateDirectory(_directory);
@@ -33,7 +36,7 @@ public class FileSystemSentryStorage : ISentryStorage
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error reading sentry file for {username}: {ex.Message}");
+            _logger.LogError(ex, "Error reading sentry file for {Username}", username);
             return null;
         }
     }
@@ -60,7 +63,7 @@ public class FileSystemSentryStorage : ISentryStorage
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error deleting sentry file for {username}: {ex.Message}");
+            _logger.LogError(ex, "Error deleting sentry file for {Username}", username);
         }
         return Task.CompletedTask;
     }
