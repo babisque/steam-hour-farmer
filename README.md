@@ -1,114 +1,136 @@
-# SteamHourFarmer
+# SteamHourFarmer (v2.0.0)
 
-A modern, lightweight .NET application for idling Steam games to boost your hour count across multiple accounts.
+A modern, lightweight .NET application for idling Steam games to boost your hour count, designed to run as a self-hosted Docker service.
 
-This application runs as a resilient background worker, managing connections for any number of Steam accounts you configure. It's built with .NET, making it cross-platform (Windows, Linux, macOS) and efficient.
+This application has been refactored to a **"one-container-one-bot"** model. Each Steam account you want to farm runs in its own lightweight container, allowing for easy configuration and management.
 
 ## Features
 
-  * **Multi-Account:** Run multiple Steam accounts simultaneously.
-  * **Multi-Game:** Idle any number of games per account.
-  * **Status Control:** Set your online status to "Online" or "Offline" on a per-account basis.
-  * **Resilient:** Automatically retries connection and login on disconnects, with an exponential backoff strategy.
-  * **Cross-Platform:** Runs on Windows, Linux, and macOS.
-  * **Lightweight:** Runs as a .NET Worker Service, consuming minimal resources.
-  * **Secure:** After the first login, authentication tokens are saved in a local `tokens` folder. Your password is not stored or needed for subsequent logins.
+  * **Docker-First:** Designed to be run as a lightweight, self-hosted container. The official image is available on [Docker Hub](https://hub.docker.com/r/babisque/steam-hour-farmer).
+  * **Multi-Account Management:** Easily run multiple accounts by simply starting multiple containers.
+  * **Environment Variable Configuration:** No `appsettings.json`. Configure your user, password, and games via environment variables.
+  * **Multi-Game:** Idle multiple games on a single account by providing a list of AppIDs.
+  * **Status Control:** Set your status to "Online" or "Offline" on a per-account basis.
+  * **Resilient:** Automatically retries connection and login on disconnects.
+  * **Secure:** After the first login, authentication tokens are saved to a Docker volume, removing the need to use your password again.
 
-## Getting Started
+## How to Run (Docker)
 
-### 1\. Download
+### Prerequisites
 
-Go to the **[Releases page](https://github.com/babisque/steam-hour-farmer/releases)** and download the latest `.zip` file for your operating system (e.g., `win-x64`, `linux-x64`).
+  * [Docker](https://www.docker.com/products/docker-desktop/) installed.
 
-### 2\. Configure
+### Step 1: Pull the Image from Docker Hub
 
-1.  Unzip the downloaded file.
-2.  Inside the unzipped folder, create a file named `appsettings.json`.
-3.  Copy and paste the template below into your new `appsettings.json` file.
-4.  Edit the file to add your own account(s).
+The image is publicly available on Docker Hub. Pull the 2.0.0 tag (or `:latest` if you prefer):
 
-**`appsettings.json` Template:**
-
-```json
-{
-  "SteamAccounts": [
-    {
-      "Username": "your_first_account",
-      "Password": "your_first_password",
-      "games": [ 730, 440 ],
-      "online": true
-    },
-    {
-      "Username": "your_second_account",
-      "Password": "your_second_password",
-      "games": [ 570 ],
-      "online": false
-    },
-    {
-      "Username": "offline_no_games",
-      "Password": "another_password",
-      "games": [],
-      "online": false
-    }
-  ]
-}
+```bash
+docker pull babisque/steam-hour-farmer:2.0.0
 ```
 
-#### Configuration Fields
+### Step 2: Create a Folder for Tokens
 
-  * `"Username"`: Your Steam login name.
-  * `"Password"`: Your Steam password. **This is only used for the very first login.**
-  * `"games"`: An array of Steam AppIDs you want to idle. You can find AppIDs on sites like [SteamDB](https://www.google.com/search?q=httpss://steamdb.info/). Use an empty list `[]` to idle no games.
-  * `"online"`: Set to `true` to appear "Online" or `false` to appear "Offline" while idling.
+You need a folder on your host PC to store the authentication tokens. This ensures you don't need to log in with 2FA every time the container restarts.
 
-### 3\. Run
+**Windows Example (PowerShell):**
 
-Open a terminal or command prompt in the folder where you unzipped the files.
+```powershell
+mkdir C:\docker-data\steam-tokens-account1
+```
 
-  * **On Windows:**
+**Linux/macOS Example:**
+
+```bash
+mkdir -p /home/$USER/docker-data/steam-tokens-account1
+```
+
+*(It is recommended to use a separate folder for each account.)*
+
+### Step 3: Start the Bot Container
+
+This is the main command. You will run it **once for each Steam account**.
+
+```bash
+docker run -d \
+  --name steam-farmer-account1 \
+  -v C:\docker-data\steam-tokens-account1:/app/data/tokens \
+  -e "STEAM_USERNAME=my_steam_account" \
+  -e "STEAM_PASSWORD=my_super_secret_password" \
+  -e "STEAM_GAMES=730,440" \
+  -e "STEAM_ONLINE=false" \
+  babisque/steam-hour-farmer:2.0.0
+```
+
+*(On Linux/macOS, change the volume path: `-v /home/$USER/docker-data/steam-tokens-account1:/app/data/tokens`)*
+
+### Running Multiple Accounts
+
+To add a second account, just repeat the `docker run` command with different data:
+
+```bash
+docker run -d \
+  --name steam-farmer-account2 \
+  -v C:\docker-data\steam-tokens-account2:/app/data/tokens \
+  -e "STEAM_USERNAME=my_other_account" \
+  -e "STEAM_PASSWORD=another_password_123" \
+  -e "STEAM_GAMES=570" \
+  -e "STEAM_ONLINE=true" \
+  babisque/steam-hour-farmer:2.0.0
+```
+
+**Important:**
+
+1.  Use a different `--name` for each container.
+2.  Use a different volume path (`-v`) for each account so the tokens don't get mixed up.
+
+-----
+
+## Configuration (Environment Variables)
+
+Configure your bot by passing these `-e` flags in the `docker run` command.
+
+| Variable | Required | Description | Example |
+| :--- | :--- | :--- | :--- |
+| `STEAM_USERNAME` | **Yes** | Your Steam login username. | `my_account` |
+| `STEAM_PASSWORD` | **Yes** | Your Steam password. (Only used for the first login). | `password123` |
+| `STEAM_GAMES` | No | Comma-separated list of AppIDs to idle. | `730,440,570` |
+| `STEAM_ONLINE` | No | If `true`, you will appear "Online". If `false` (default), you appear "Offline". | `false` |
+
+### Persistent Volume
+
+  * `/app/data/tokens`: The container stores authentication tokens in this path. You **must** map this path to a local folder using `-v` to make your logins persistent.
+
+-----
+
+## First-Time Login (Steam Guard / 2FA)
+
+On the **first login** for an account, the bot will need your 2FA (Steam Guard) code, as `SteamSession` uses the `UserConsoleAuthenticator`.
+
+1.  Run the `docker run` command as shown above.
+2.  View your container's logs:
     ```bash
-    .\SteamHourFarmer.Worker.exe
+    docker logs steam-farmer-account1
     ```
-  * **On Linux / macOS:**
+3.  The log will prompt you for the 2FA code.
+4.  To enter the code, "attach" to the container:
     ```bash
-    # Make the file executable (only need to do this once)
-    chmod +x SteamHourFarmer.Worker
-
-    # Run the application
-    ./SteamHourFarmer.Worker
+    docker attach steam-farmer-account1
     ```
+5.  Type the 2FA code and press Enter.
+6.  To detach from the container without stopping it, press **`Ctrl+P`** then **`Ctrl+Q`**.
 
-### First-Time Login (Steam Guard / 2FA)
-
-The **first time** you log in with each account, the application will pause and ask for your **Steam Guard (2FA) code** in the console.
-
-Type the code and press Enter. After a successful login, an authentication token is saved in the `tokens` folder. You will not need to enter your password or 2FA code for that account ever again.
-
-## Advanced Configuration
-
-You can override default paths using environment variables or command-line arguments.
-
-  * `--config` (argument) or `CONFIG_PATH` (environment variable):
-    Specifies a custom path for your configuration JSON file.
-    *Default: `./config.json`*
-    *(Note: `appsettings.json` is always loaded first).*
-
-  * `TOKEN_STORAGE_DIRECTORY` (environment variable):
-    Specfies a custom directory to store the authentication tokens.
-    *Default: `./tokens`*.
+After this, the token will be saved in your volume, and you will never need to enter your password or 2FA code again.
 
 ## Building from Source
 
-If you want to build the project yourself:
-
-1.  Install the [.NET 9 SDK](https://www.google.com/search?q=httpss://dotnet.microsoft.com/download/dotnet/9.0) (or newer).
-2.  Clone this repository: `git clone httpss://github.com/babisque/steam-hour-farmer.git`
+1.  Install the [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) (or newer) and [Docker](https://www.docker.com/products/docker-desktop/).
+2.  Clone this repository: `git clone https://github.com/babisque/steam-hour-farmer.git`
 3.  `cd steam-hour-farmer`
-4.  Run the `publish` command for your platform (e.g., `win-x64`, `linux-x64`):
+4.  Build your own Docker image:
     ```bash
-    dotnet publish -c Release -r win-x64 --self-contained true
+    docker build -t your-name/steam-hour-farmer:latest .
     ```
-5.  The runnable application will be in the `SteamHourFarmer.Worker/bin/Release/net9.0/win-x64/publish/` folder.
+5.  Run the image you just built (use the `docker run` command from the "How to Run" section).
 
 ## License
 
